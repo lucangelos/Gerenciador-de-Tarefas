@@ -1,88 +1,107 @@
-const promptSync = require("prompt-sync")
-const mysql = require("mysql2")
+/*Importações*/
+const promptSync = require("prompt-sync");
+const mysql = require("mysql2/promise");
+const { createPool } = require("mysql2");
 
-const prompt = promptSync({ sigint: true })
+const prompt = promptSync({ sigint: true });
 
-const db = mysql.createConnection({
+/*Conexão com o MySQL*/
+const db = mysql.createPool({
     host: "localhost",
     user: "root",
-    password: "Etec", 
+    password: "Etec",
     database: "gerenciador_de_tarefas",
-    port: 3306,        
-    connectTimeout: 20000 
-});
+    port: 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+})
 
-db.connect(erro => {
-    if (erro) throw erro;  
-    console.log("Conectado com sucesso!")
-});
+/*Funções*/
+async function adicionarTarefas() {
+    try {
+        const nome = prompt("Digite uma nova tarefa: ")
+        const dificuldade = prompt("Digite a dificuldade da tarefa: ")
 
-function adicionarTarefas() {
-    const nome = prompt("Digite a nova tarefa: ");
-    const dificuldade = prompt("Insira a dificuldade da tarefa (Fácil, Médio, Difícil): ")
-    const sql = "INSERT INTO tarefas (resposta, dificuldade) VALUES (?, ?)"
-    db.query(sql, [nome, dificuldade], (erro, resultado) => {
-        if (erro) throw erro
-        console.log("Tarefa adicionada com sucesso!\n")
-    });
+        const sql = "INSERT INTO tarefas (resposta, dificuldade) VALUES (?, ?)"
+        await db.query(sql, [nome, dificuldade])
+        console.log("\nTarefa adicionada com sucesso!\n")
+    } catch (erro) {
+        console.log("\n[ERRO] Não foi possível adicionar a tarefa!\n")
+    }
 }
 
-function listarTarefas() {
-    return new Promise((resolve, reject) => {
-        const sql = "SELECT * FROM tarefas";
-        db.query(sql, (erro, resultado) => {
-            if (erro) return reject(erro);
-            console.log("-- Tarefas a fazer --")
-            console.log("------------------------------")
-            if (resultado.length === 0) {
-                console.log("Nenhuma tarefa adicionada.\n")
-                return resolve(resultado);
-            }
-            
-            resultado.forEach(tarefa => {
-                console.log(`ID ${tarefa.id}: ${tarefa.resposta} || Dificuldade: ${tarefa.dificuldade}`)
-            })
-            resolve(resultado);
+async function listarTarefas() {
+    try {
+        const sql = "SELECT * FROM tarefas"
+        const [resultado] = await db.query(sql)
+
+        if (resultado.length === 0) {
+            console.log("Nenhuma tarefa adicionada!\n")
+            return resultado;
+        }
+
+        resultado.forEach(tarefa => {
+            console.log(`ID ${tarefa.id}: ${tarefa.resposta}  ||  Dificuldade: ${tarefa.dificuldade}`)
         })
-    })
+    } catch (erro) {
+        console.log("\n[ERRO] Não foi possível listar as tarefas!\n")
+    }
 }
 
-async function deletarTarefa() {
-    await listarTarefas() 
+async function deletarTarefas() {
+    try {
+        const tarefas = await listarTarefas()
+        if (tarefas.length === 0) return;
 
-    const deletar = parseInt(prompt("Digite o ID da tarefa que deseja deletar: "))
-    const sql = "DELETE FROM tarefas WHERE id = ?"
 
-    db.query(sql, [deletar], (erro, resultado) => {
-        if (erro) throw erro
-        if (resultado.affectedRows === 0) {
-            console.log("[ERRO] Essa task não existe.")
+        const deletar = parseInt(prompt("Digite o ID da tarefa em que você deseja deletar: "))
+        const sql = "DELETE FROM tarefas WHEN id = ?"
+        const [resultado] = await db.query(sql, [deletar])
+
+        if(resultado.affectedRows === 0) {
+            console.log("\n[ERRO] Nenhuma task identificada!\n")
         } else {
-            console.log("Tarefa excluída!")
+            console.log("\NTarefa excluída!\n")
         }
-    })
+    } catch (erro) {
+        console.log("\n[ERRO] Não foi possível deletar uma tarefa!\n")
+    }
 }
 
-function main() {
-    let cont = -1
+/*Função principal*/
+async function main() {
+    let cont = -1;
     do {
+        /*Opções*/
         console.log("----------------------------------")
-        console.log("-- Gerenciador de tarefas --")
+        console.log("      Gerenciador de Tarefas      ")
         console.log("----------------------------------")
-        console.log("1- Adicionar tarefa")
-        console.log("2- Deletar tarefa")
-        console.log("3- Listar tarefas")
-        console.log("0- Sair")
-        cont = parseInt(prompt("Escolha uma das opções: "))
-
+        console.log("1 - Adicionar tarefa")
+        console.log("2 - Deletar tarefa")
+        console.log("3 - Listar tarefas")
+        console.log("0 - Sair")
+        cont = parseInt(prompt("Escolha uma opção: "))
+        
+        /*Executa as opção selecionada*/
         switch (cont) {
-            case 1: adicionarTarefas(); break;
-            case 2: deletarTarefa(); break;
-            case 3: listarTarefas(); break;
-            case 0: console.log("Saindo..."); db.end(); break;
-            default: console.log("[ERRO] Opção inválida!"); break;
+            case 1:
+                await adicionarTarefas();
+                break;
+            case 2:
+                await deletarTarefa();
+                break;
+            case 3:
+                await listarTarefas();
+                break;
+            case 0:
+                console.log("Saindo...");
+                process.exit(0);
+            default:
+                console.log("[ERRO] Opção inválida!\n")
         }
+
     } while (cont !== 0)
 }
 
-main();
+main()
