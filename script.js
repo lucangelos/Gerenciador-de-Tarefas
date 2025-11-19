@@ -72,7 +72,8 @@ async function deletarTarefas() {
 
 async function editarTarefa() {
     try {
-        const lista = listarTarefas()
+        
+        const lista = await listarTarefas()
         if (lista.length === 0) return;
 
         const id = prompt("Digite o ID da tarefa em que você deseja editar: ")
@@ -107,7 +108,7 @@ async function editarTarefa() {
 async function concluirTarefa() {
    try {
         const lista = await listarTarefas()
-        const id = parseInt(prompt("Digite o ID da tarefa que irá marcar como concluída: "))
+        const id = parseInt(prompt("\nDigite o ID da tarefa que irá marcar como concluída: "))
         if (lista.length === 0) return;
         
         const sql = "UPDATE tarefas SET status = 'concluida' WHERE id = ?"
@@ -126,7 +127,7 @@ async function concluirTarefa() {
 async function tarefaPendente() {
     try {
         const lista = await listarTarefas()
-        const id = parseInt(prompt("Digite o ID da tarefa que você irá reabrir (deixá-la pendente): "))
+        const id = parseInt(prompt("\nDigite o ID da tarefa que você irá reabrir (deixá-la pendente): "))
         if (lista.length === 0) return;
         
         const sql = "UPDATE tarefas SET status = 'pendente' WHERE id = ?"
